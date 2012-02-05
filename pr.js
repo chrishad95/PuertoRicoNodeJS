@@ -14,8 +14,9 @@ app.get('/js/client.js', function (req, res) {
 });
 
 io.sockets.on('connection', function (socket) {
-    socket.emit('news', { hello: 'world' });
-    socket.on('msg', function (data) {
+    socket.emit('chat', { message: 'Server says, Hello World!' });
+    socket.on('chat', function (data) {
+		socket.broadcast.emit('chat', {message: data.message});
         console.log(data);
     });
 });
