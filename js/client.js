@@ -3,6 +3,7 @@ var prGame = {
 	name:   "" 
 }
 
+var lines = [];
 
 var KEY = {
 	UP: 38,
@@ -23,14 +24,29 @@ $(function () {
 		appendchat(data.message);
 		});
 
-
+	
     $(document).keydown(function(e) {
 	});
 
 	$("#txt_input").keydown(function(e) {
 		if (e.which == 13 ){
-			socket.emit('chat', {message: 'Client says, ' + this.value});
-			appendchat(this.value);
+
+			var t = this.value;
+			if (t.substr(0,5) == '/nick') {
+				socket.emit('set nickname', t.substr(6));
+			} else if (t.substr(0,5) == '/game') {
+				socket.emit('game', t.substr(6));
+			} else if (t.substr(0,4) == '/msg') {
+				socket.emit('private message', t.substr(5) );
+			} else if (t.substr(0,5) == '/list') {
+				socket.emit('list players');
+			} else if (t.substr(0,6) == '/clear') {
+    			$("#chatwindow").val("");
+			} else
+			{
+				socket.emit('chat', {message: this.value});
+				appendchat(this.value);
+			}
 			this.value = '';
 		}
 
@@ -39,11 +55,14 @@ $(function () {
 
 	$(document).keyup(function (e) {
 	});
-        
+	setInterval(gameloop, 30);
 });
+
+function gameloop(){
+}
 
 function appendchat(s) {
     var t = $("#chatwindow").val();
-    t = t + s;
+    t = t + String.fromCharCode(13) + s;
     $("#chatwindow").val(t);
 }
