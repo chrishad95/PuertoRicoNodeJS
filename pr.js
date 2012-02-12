@@ -306,22 +306,54 @@ function setupGame(id){
 			puertorico.games[id].players[puertorico.games[id].player_order[0]].plantations.push({type: 'indigo', occupied: 0}  );
 			puertorico.games[id].players[puertorico.games[id].player_order[1]].plantations.push({type: 'indigo', occupied: 0}  );
 			puertorico.games[id].players[puertorico.games[id].player_order[2]].plantations.push({type: 'corn', occupied: 0}  );
+			puertorico.games[id].available_plantation_types['indigo']--;
+			puertorico.games[id].available_plantation_types['indigo']--;
+			puertorico.games[id].available_plantation_types['corn']--;
 		}
+
 		if (puertorico.games[id].num_players == 4){
-			puertorico.games[id].players[puertorico.games[id].player_order[0]].money = 3;
-			puertorico.games[id].players[puertorico.games[id].player_order[1]].money = 3;
-			puertorico.games[id].players[puertorico.games[id].player_order[2]].money = 3;
-			puertorico.games[id].players[puertorico.games[id].player_order[3]].money = 3;
+			puertorico.games[id].players[puertorico.games[id].player_order[0]].plantations.push({type: 'indigo', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[1]].plantations.push({type: 'indigo', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[2]].plantations.push({type: 'corn', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[3]].plantations.push({type: 'corn', occupied: 0}  );
+			puertorico.games[id].available_plantation_types['indigo']--;
+			puertorico.games[id].available_plantation_types['indigo']--;
+			puertorico.games[id].available_plantation_types['corn']--;
+			puertorico.games[id].available_plantation_types['corn']--;
 		}
 		if (puertorico.games[id].num_players > 4){
-			puertorico.games[id].players[puertorico.games[id].player_order[0]].money = 4;
-			puertorico.games[id].players[puertorico.games[id].player_order[1]].money = 4;
-			puertorico.games[id].players[puertorico.games[id].player_order[2]].money = 4;
-			puertorico.games[id].players[puertorico.games[id].player_order[3]].money = 4;
-			puertorico.games[id].players[puertorico.games[id].player_order[4]].money = 4;
+			puertorico.games[id].players[puertorico.games[id].player_order[0]].plantations.push({type: 'indigo', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[1]].plantations.push({type: 'indigo', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[2]].plantations.push({type: 'indigo', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[3]].plantations.push({type: 'corn', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[4]].plantations.push({type: 'corn', occupied: 0}  );
+			puertorico.games[id].available_plantation_types['indigo']--;
+			puertorico.games[id].available_plantation_types['indigo']--;
+			puertorico.games[id].available_plantation_types['indigo']--;
+			puertorico.games[id].available_plantation_types['corn']--;
+			puertorico.games[id].available_plantation_types['corn']--;
 		}
 
+		puertorico.games[id].plantations = [];
 
+		for (p_type in puertorico.games[id].available_plantation_types){
+			for (var i=0; i< puertorico.games[id].available_plantation_types[p_type]; i++){
+				puertorico.games[id].plantations.push( p_type );	
+			}
+		}
+
+		puertorico.games[id].plantations.sort(function() {return 0.5 - Math.random()});
+
+		// plantation tiles showing
+		// one more than number of players
+
+		puertorico.games[id].plantations_flipped = [];
+		for (var i=0; i<puertorico.games[id].num_players; i++){
+			p = puertorico.games[id].plantations.unshift();
+			puertorico.games[id].plantations_flipped.shift(p);
+		}
+		p = puertorico.games[id].plantations.unshift();
+		puertorico.games[id].plantations_flipped.shift(p);
 
 		// setup available roles
 		// 3 players: captain, trader, settler, builder, craftsman, mayor
@@ -369,11 +401,6 @@ function setupGame(id){
 			puertorico.games[id].colonists_remaining = 95;
 		}
 
-		// plantation tiles showing
-		// one more than number of players
-		puertorico.games[id].plantations = [];
-
-		puertorico.games[id].plantations_flipped = [];
 
 
 
