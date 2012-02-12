@@ -8,6 +8,20 @@ var puertorico  = {
 	games_counter: 0
 };
 
+puertorico.plantation_types = new Array();
+puertorico.plantation_types["coffee"] = 8;
+puertorico.plantation_types["tobacco"] = 9;
+puertorico.plantation_types["corn"] = 10;
+puertorico.plantation_types["sugar"] = 11;
+puertorico.plantation_types["indigo"] = 12;
+
+puertorico.good_types = new Array();
+puertorico.good_types["coffee"] = 9;
+puertorico.good_types["tobacco"] = 9;
+puertorico.good_types["corn"] = 10;
+puertorico.good_types["sugar"] = 11;
+puertorico.good_types["indigo"] = 11;
+
 var guests = 0;
 
 app.listen(9090);
@@ -277,7 +291,36 @@ function setupGame(id){
 		// 3 players, indigo, indigo, corn
 		// 4 players: indigo, indigo, corn, corn
 		// 5 players: indigo, indigo, indigo, corn, corn
-		
+		for (p in puertorico.games[id].players){
+			if (puertorico.games[id].players[p].isPlayer){
+				puertorico.games[id].players[p].plantation_spaces = 12;
+				puertorico.games[id].players[p].plantations = [];
+			}
+		}
+		puertorico.games[id].available_plantation_types = new Array();
+		for (p_type in puertorico.plantation_types){
+			puertorico.games[id].available_plantation_types[p_type] = puertorico.plantation_types[p_type];
+		}
+
+		if (puertorico.games[id].num_players == 3){
+			puertorico.games[id].players[puertorico.games[id].player_order[0]].plantations.push({type: 'indigo', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[1]].plantations.push({type: 'indigo', occupied: 0}  );
+			puertorico.games[id].players[puertorico.games[id].player_order[2]].plantations.push({type: 'corn', occupied: 0}  );
+		}
+		if (puertorico.games[id].num_players == 4){
+			puertorico.games[id].players[puertorico.games[id].player_order[0]].money = 3;
+			puertorico.games[id].players[puertorico.games[id].player_order[1]].money = 3;
+			puertorico.games[id].players[puertorico.games[id].player_order[2]].money = 3;
+			puertorico.games[id].players[puertorico.games[id].player_order[3]].money = 3;
+		}
+		if (puertorico.games[id].num_players > 4){
+			puertorico.games[id].players[puertorico.games[id].player_order[0]].money = 4;
+			puertorico.games[id].players[puertorico.games[id].player_order[1]].money = 4;
+			puertorico.games[id].players[puertorico.games[id].player_order[2]].money = 4;
+			puertorico.games[id].players[puertorico.games[id].player_order[3]].money = 4;
+			puertorico.games[id].players[puertorico.games[id].player_order[4]].money = 4;
+		}
+
 
 
 		// setup available roles
@@ -304,27 +347,53 @@ function setupGame(id){
 		// 5 players: 6, 7, 8
 	
 		puertorico.games[id].ships = [];
-		puertorico.games[id].ships[0] = {size: puertorico.games[id].num_players + 1};
-		puertorico.games[id].ships[1] = {size: puertorico.games[id].num_players + 2};
-		puertorico.games[id].ships[2] = {size: puertorico.games[id].num_players + 3};
+		puertorico.games[id].ships[0] = {size: puertorico.games[id].num_players + 1, type: "", hold: 0};
+		puertorico.games[id].ships[1] = {size: puertorico.games[id].num_players + 2, type: "", hold: 0};
+		puertorico.games[id].ships[2] = {size: puertorico.games[id].num_players + 3, type: "", hold: 0};
 
 		// setup colonist ship
 		// colonists = number of players (3,4,5)
+		puertorico.games[id].colonist_ship = puertorico.games[id].num_players;
 
 		// setup colonists
 		// 3 players: 55 colonists
 		// 4 players: 75 colonists
 		// 5 players: 95 colonists
+		if (puertorico.games[id].num_players == 3){
+			puertorico.games[id].colonists_remaining = 55;
+		}
+		if (puertorico.games[id].num_players == 4){
+			puertorico.games[id].colonists_remaining = 75;
+		}
+		if (puertorico.games[id].num_players == 5){
+			puertorico.games[id].colonists_remaining = 95;
+		}
 
-		// plantation tiles 
+		// plantation tiles showing
 		// one more than number of players
+		puertorico.games[id].plantations = [];
+
+		puertorico.games[id].plantations_flipped = [];
+
+
 
 		// 8 quarry tiles
+		puertorico.games[id].quarries = 8;
+
 
 		// victory points
 		// 3 players: 75
 		// 4 players: 100
 		// 5 players: 122
+		if (puertorico.games[id].num_players == 3){
+			puertorico.games[id].vp_remaining = 75;
+		}
+		if (puertorico.games[id].num_players == 4){
+			puertorico.games[id].vp_remaining = 100;
+		}
+		if (puertorico.games[id].num_players == 5){
+			puertorico.games[id].vp_remaining = 122;
+		}
 
 		puertorico.games[id].status = "Setting up Game, player turn: " + puertorico.games[id].player_turn;
 	}
