@@ -69,6 +69,8 @@ io.sockets.on('connection', function (socket) {
 
 	socket.on('set nickname', function(name) {
 		socket.get('id', function(err,id){
+			name = name.split(' ')[0];
+			
 			puertorico.players[id].names.unshift({name: name, tick: new Date().getTime() });
 			var oldname = puertorico.players[id].name;
 			puertorico.players[id].name = name;
@@ -201,6 +203,9 @@ io.sockets.on('connection', function (socket) {
 
 					puertorico.games[puertorico.players[id].game].gameStarted	= true;
 					sendToGame(puertorico.players[id].game, puertorico.players[id].name + " has started the game.", -1);
+					sendToGame(puertorico.players[id].game, "It is " + puertorico.players[puertorico.games[puertorico.players[id].game].player_order[puertorico.games[puertorico.players[id].game].player_turn]].name + "'s turn.", -1);
+
+
 				} else {
 					if (! puertorico.players[id].inGame){
 						socket.emit('chat', {message: 'Sorry, you are not in a game!'});
@@ -253,8 +258,9 @@ function leaveGame(id){
 
 function setupGame(id){
 	if (puertorico.games[id] != undefined) {
-		puertorico.games[id].governor = Math.floor(puertorico.games[id].num_players * Math.random());
-		puertorico.games[id].player_turn = puertorico.games[id].governor;
+		puertorico.games[id].governor = 0;
+		puertorico.games[id].player_turn = 0;
+		
 		puertorico.games[id].player_order = [];
 		for (p in puertorico.games[id].players){
 			if (puertorico.games[id].players[p].isPlayer){
@@ -349,11 +355,11 @@ function setupGame(id){
 
 		puertorico.games[id].plantations_flipped = [];
 		for (var i=0; i<puertorico.games[id].num_players; i++){
-			p = puertorico.games[id].plantations.unshift();
-			puertorico.games[id].plantations_flipped.shift(p);
+			p = puertorico.games[id].plantations.shift();
+			puertorico.games[id].plantations_flipped.unshift(p);
 		}
-		p = puertorico.games[id].plantations.unshift();
-		puertorico.games[id].plantations_flipped.shift(p);
+		p = puertorico.games[id].plantations.shift();
+		puertorico.games[id].plantations_flipped.unshift(p);
 
 		// setup available roles
 		// 3 players: captain, trader, settler, builder, craftsman, mayor
@@ -400,9 +406,6 @@ function setupGame(id){
 		if (puertorico.games[id].num_players == 5){
 			puertorico.games[id].colonists_remaining = 95;
 		}
-
-
-
 
 		// 8 quarry tiles
 		puertorico.games[id].quarries = 8;
