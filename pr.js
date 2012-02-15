@@ -128,8 +128,9 @@ io.sockets.on('connection', function (socket) {
 				var elem = action.split(' ');
 				var g = new Game(elem[1], elem[2]);
 				g.id = puertorico.games_counter++;
-				g.max_players = 2;
+				g.max_players = 5;
 				g.players["" + id] = {id: id};
+				g.players[id].isPlayer = true;	
 				g.num_players = 1;
 				g.num_spectators = 0;
 				g.gameStarted = false;
@@ -203,7 +204,7 @@ io.sockets.on('connection', function (socket) {
 
 					puertorico.games[puertorico.players[id].game].gameStarted	= true;
 					sendToGame(puertorico.players[id].game, puertorico.players[id].name + " has started the game.", -1);
-					sendToGame(puertorico.players[id].game, "It is " + puertorico.players[puertorico.games[puertorico.players[id].game].player_order[puertorico.games[puertorico.players[id].game].player_turn]].name + "'s turn.", -1);
+					sendToGame(puertorico.players[id].game, "It is " + puertorico.players[puertorico.games[puertorico.players[id].game].player_order[puertorico.games[puertorico.players[id].game].player_turn]].name + "'s turn to " + puertorico.games[puertorico.players[id].game].action + ".", -1);
 
 
 				} else {
@@ -259,6 +260,7 @@ function leaveGame(id){
 function setupGame(id){
 	if (puertorico.games[id] != undefined) {
 		puertorico.games[id].governor = 0;
+		puertorico.games[id].action = "choose role";
 		puertorico.games[id].player_turn = 0;
 		
 		puertorico.games[id].player_order = [];
