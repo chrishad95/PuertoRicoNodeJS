@@ -196,6 +196,23 @@ io.sockets.on('connection', function (socket) {
 							}
 					}
 				}
+			} else if (action.indexOf('choose_role') == 0){
+				if (myTurn(id) && puertorico.games[puertorico.players[id].game].action == "choose role"){
+					var g = puertorico.players[id].game;
+
+					var elem = action.split(' ');
+					var n = elem[1];
+					var role_is_available = false;
+					for (r in puertorico.games[g].available_roles){
+						if (r.name == n && ! r.taken ){
+							r.taken = true;
+							puertorico.games[g].players[id].role = n;
+							sendToGame(puertorico.players[id].game, puertorico.players[id].name + " chose the role: " + n, id);
+							socket.emit('chat', {message: 'You chose the role: ' + n + '.' });
+
+						}
+					}
+				}
 			} else if (action.indexOf('start') == 0){
 				// should be at least 3 puertorico.players first 3-5 puertorico.players will be puertorico.players, else will be spectators.
 				if (puertorico.players[id].inGame && ! puertorico.games[puertorico.players[id].game].gameStarted && puertorico.games[puertorico.players[id].game].num_players > 2){
@@ -256,12 +273,20 @@ function leaveGame(id){
 		puertorico.players[id].game = -1;
 	}
 }
+function changeTurn(game_id){
+	if (games[game_id]
+}
+function changeRound(game_id){
+	
+}
 
+function myTurn(id){
+
+	return (puertorico.players[id].inGame && puertorico.games[puertorico.players[id].game].gameStarted && puertorico.games[puertorico.players[id].game].player_order[puertorico.games[puertorico.players[id].game].player_turn] == id );
+
+}
 function setupGame(id){
 	if (puertorico.games[id] != undefined) {
-		puertorico.games[id].governor = 0;
-		puertorico.games[id].action = "choose role";
-		puertorico.games[id].player_turn = 0;
 		
 		puertorico.games[id].player_order = [];
 		for (p in puertorico.games[id].players){
@@ -272,6 +297,12 @@ function setupGame(id){
 
 		// shuffle player order
 		puertorico.games[id].player_order.sort(function() {return 0.5 - Math.random()});
+
+		puertorico.games[id].governor = 0;
+		puertorico.games[id].action = "choose role";
+		puertorico.games[id].player_turn = 0;
+		puertorico.games[id].player_turn_id = puertorico.games[id].player_order[0];
+
 		puertorico.games[id].round = 1;
 
 		// setup money
