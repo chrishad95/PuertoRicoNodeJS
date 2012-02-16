@@ -197,31 +197,52 @@ io.sockets.on('connection', function (socket) {
 					}
 				}
 			} else if (action.indexOf('choose_role') == 0){
+				console.log("my turn?" + myTurn(id));
 				if (myTurn(id) && puertorico.games[puertorico.players[id].game].action == "choose role"){
 					var g = puertorico.players[id].game;
+					for (var i=0; i< puertorico.games[g].player_order.length; i++){
+						console.log("Player Order: (" + i + ") " + puertorico.players[puertorico.games[g].player_order[i]].name);
+					}
 
 					var elem = action.split(' ');
 					var n = elem[1];
 					var role_is_available = false;
+					
 					for (r in puertorico.games[g].available_roles){
-						if (r.name == n && ! r.taken ){
-							r.taken = true;
-							puertorico.games[g].players[id].role = n;
-							sendToGame(puertorico.players[id].game, puertorico.players[id].name + " chose the role: " + n, id);
-							socket.emit('chat', {message: 'You chose the role: ' + n + '.' });
+						if (puertorico.games[g].available_roles[r].id == n && ! puertorico.games[g].available_roles[r].taken ){
+							puertorico.games[g].available_roles[r].taken = true;
+							puertorico.games[g].players[id].role = puertorico.games[g].available_roles[r].name;
+							sendToGame(puertorico.players[id].game, puertorico.players[id].name + " chose the role: " + puertorico.games[g].available_roles[r].name, id);
+							socket.emit('chat', {message: 'You chose the role: ' + puertorico.games[g].available_roles[r].name + '.' });
+							puertorico.games[g].players[id].money += puertorico.games[g].available_roles[r].money;
+							puertorico.games[g].available_roles[r].money = 0;
+							if ( puertorico.games[g].player_turn_idx == puertorico.games[g].player_order.length -1  ){
+								console.log("player turn:" +  puertorico.players[puertorico.games[g].player_turn].name, puertorico.games[g].player_turn_idx);
+								changeRound(g);
+								console.log("player turn:" +  puertorico.players[puertorico.games[g].player_turn].name, puertorico.games[g].player_turn_idx);
+							} else {
+								console.log("player turn:" +  puertorico.players[puertorico.games[g].player_turn].name, puertorico.games[g].player_turn_idx);
 
+								puertorico.games[g].player_turn = puertorico.games[g].player_order[puertorico.games[g].player_turn_idx++];
+								console.log("player turn:" +  puertorico.players[puertorico.games[g].player_turn].name, puertorico.games[g].player_turn_idx);
+							}
+							sendToGame(g, "It is " + puertorico.players[puertorico.games[g].player_turn].name + "'s turn to " + puertorico.games[g].action + ".", -1);
 						}
 					}
+				} else {
 				}
 			} else if (action.indexOf('start') == 0){
 				// should be at least 3 puertorico.players first 3-5 puertorico.players will be puertorico.players, else will be spectators.
 				if (puertorico.players[id].inGame && ! puertorico.games[puertorico.players[id].game].gameStarted && puertorico.games[puertorico.players[id].game].num_players > 2){
 					
-					setupGame(puertorico.players[id].game);
+					var g = puertorico.players[id].game;
 
-					puertorico.games[puertorico.players[id].game].gameStarted	= true;
-					sendToGame(puertorico.players[id].game, puertorico.players[id].name + " has started the game.", -1);
-					sendToGame(puertorico.players[id].game, "It is " + puertorico.players[puertorico.games[puertorico.players[id].game].player_order[puertorico.games[puertorico.players[id].game].player_turn]].name + "'s turn to " + puertorico.games[puertorico.players[id].game].action + ".", -1);
+					setupGame(g);
+					changeRound(g);
+
+					puertorico.games[g].gameStarted	= true;
+					sendToGame(g, puertorico.players[id].name + " has started the game.", -1);
+					sendToGame(g, "It is " + puertorico.players[puertorico.games[g].player_turn].name + "'s turn to " + puertorico.games[g].action + ".", -1);
 
 
 				} else {
@@ -273,16 +294,22 @@ function leaveGame(id){
 		puertorico.players[id].game = -1;
 	}
 }
-function changeTurn(game_id){
-	if (games[game_id]
-}
+
 function changeRound(game_id){
-	
+	puertorico.games[game_id].action = "";
+	puertorico.games[game_id].player_order.push(puertorico.games[game_id].player_order.shift());
+	puertorico.games[game_id].player_turn = puertorico.games[game_id].player_order[0];
+	puertorico.games[game_id].player_turn_idx = 0;
+	puertorico.games[game_id].action = "choose role";
+	puertorico.games[game_id].round++;
+	for (var i=0; i< puertorico.games[game_id].player_order.length; i++){
+		console.log("Player Order: (" + i + ") " + puertorico.players[puertorico.games[game_id].player_order[i]].name);
+	}
 }
 
 function myTurn(id){
 
-	return (puertorico.players[id].inGame && puertorico.games[puertorico.players[id].game].gameStarted && puertorico.games[puertorico.players[id].game].player_order[puertorico.games[puertorico.players[id].game].player_turn] == id );
+	return (puertorico.players[id].inGame && puertorico.games[puertorico.players[id].game].gameStarted && puertorico.games[puertorico.players[id].game].player_turn == id );
 
 }
 function setupGame(id){
@@ -297,13 +324,11 @@ function setupGame(id){
 
 		// shuffle player order
 		puertorico.games[id].player_order.sort(function() {return 0.5 - Math.random()});
-
-		puertorico.games[id].governor = 0;
+		puertorico.games[id].round = 0;
 		puertorico.games[id].action = "choose role";
-		puertorico.games[id].player_turn = 0;
-		puertorico.games[id].player_turn_id = puertorico.games[id].player_order[0];
+		puertorico.games[id].player_turn_idx = 0;
+		puertorico.games[id].player_turn = puertorico.games[id].player_order[0];
 
-		puertorico.games[id].round = 1;
 
 		// setup money
 		// 3 players 2 doubloons, 4 players 3 doubloons, 5 players 4 doubloons
@@ -399,17 +424,17 @@ function setupGame(id){
 		// 4 players: same as 3 player, plus 1 prospector
 		// 5 players: same as 3 player, plus 2 prospectors
 		puertorico.games[id].available_roles = [];
-		puertorico.games[id].available_roles.push({name: 'captain', money: 0, taken: false});
-		puertorico.games[id].available_roles.push({name: 'craftsman', money: 0, taken: false});
-		puertorico.games[id].available_roles.push({name: 'trader', money: 0, taken: false});
-		puertorico.games[id].available_roles.push({name: 'builder', money: 0, taken: false});
-		puertorico.games[id].available_roles.push({name: 'settler', money: 0, taken: false});
-		puertorico.games[id].available_roles.push({name: 'mayor', money: 0, taken: false});
+		puertorico.games[id].available_roles.push({id: 0, name: 'captain', money: 0, taken: false});
+		puertorico.games[id].available_roles.push({id: 1, name: 'craftsman', money: 0, taken: false});
+		puertorico.games[id].available_roles.push({id: 2, name: 'trader', money: 0, taken: false});
+		puertorico.games[id].available_roles.push({id: 3, name: 'builder', money: 0, taken: false});
+		puertorico.games[id].available_roles.push({id: 4, name: 'settler', money: 0, taken: false});
+		puertorico.games[id].available_roles.push({id: 5, name: 'mayor', money: 0, taken: false});
 		if (puertorico.games[id].num_players > 3){
-			puertorico.games[id].available_roles.push({name: 'prospector', money: 0, taken: false});
+			puertorico.games[id].available_roles.push({id: 6, name: 'prospector', money: 0, taken: false});
 		}
 		if (puertorico.games[id].num_players > 4){
-			puertorico.games[id].available_roles.push({name: 'prospector', money: 0, taken: false});
+			puertorico.games[id].available_roles.push({id: 7, name: 'prospector', money: 0, taken: false});
 		}
 
 		// setup ships
