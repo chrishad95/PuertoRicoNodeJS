@@ -23,6 +23,9 @@ $(function () {
 	socket.on('chat', function (data) {
 		appendchat(data.message);
 		});
+	socket.on('game', function (data) {
+		console.log(data);
+		});
 
 	
     $(document).keydown(function(e) {
@@ -50,7 +53,6 @@ $(function () {
 			this.value = '';
 		}
 
-		console.log(e.which);
 	});
 
 	$(document).keyup(function (e) {

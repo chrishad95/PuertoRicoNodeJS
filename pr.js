@@ -5,7 +5,8 @@ var puertorico  = {
 	games: new Array(),
 	players: new Array(),
 	player_names: new Array(),
-	games_counter: 0
+	games_counter: 0,
+	guests: 0
 };
 
 puertorico.plantation_types = new Array();
@@ -22,7 +23,6 @@ puertorico.good_types["corn"] = 10;
 puertorico.good_types["sugar"] = 11;
 puertorico.good_types["indigo"] = 11;
 
-var guests = 0;
 
 app.listen(9090);
 
@@ -38,7 +38,7 @@ app.get('/js/client.js', function (req, res) {
 
 io.sockets.on('connection', function (socket) {
 	
-	var id = guests++;
+	var id = puertorico.guests++;
 	var p = new Player(socket, "Guest" + id );
 	p.inGame = false;
 
@@ -91,6 +91,9 @@ io.sockets.on('connection', function (socket) {
 				console.log("Name: " + puertorico.players[id].names[i].name + ", time:" + puertorico.players[id].names[i].tick);
 			}
 			if (changed) {
+				if (puertorico.players[id].inGame){
+					puertorico.games[puertorico.players[id].game].players[id].name = name;
+				}
 				socket.broadcast.emit('chat', {message: oldname + ' is now known as ' + name});
 				socket.emit('chat', {message: 'You are now known as ' + name});
 			}
@@ -131,6 +134,7 @@ io.sockets.on('connection', function (socket) {
 				g.max_players = 5;
 				g.players["" + id] = {id: id};
 				g.players[id].isPlayer = true;	
+				g.players[id].name = puertorico.players[id].name;	
 				g.num_players = 1;
 				g.num_spectators = 0;
 				g.gameStarted = false;
@@ -162,9 +166,7 @@ io.sockets.on('connection', function (socket) {
 				leaveGame(id);
 			} else if (action.indexOf('status') == 0){
 				if (puertorico.players[id].inGame){
-					if (puertorico.games[puertorico.players[id].game] != undefined){
-						socket.emit('chat', {message: 'Game Status: ' + puertorico.games[puertorico.players[id].game].status });
-					}
+					socket.emit('game', puertorico.games[puertorico.players[id].game]);
 				}
 
 			} else if (action.indexOf('join') == 0){
@@ -179,6 +181,7 @@ io.sockets.on('connection', function (socket) {
 				} else {
 					if (puertorico.games[n] != undefined){
 							puertorico.games[n].players["" + id] = {id: id};
+							puertorico.games[n].players[id].name = puertorico.players[id].name;
 							if (puertorico.games[n].num_players < puertorico.games[n].max_players ){
 								puertorico.games[n].players[id].isPlayer = true;	
 								puertorico.games[n].num_players++;
@@ -196,12 +199,52 @@ io.sockets.on('connection', function (socket) {
 							}
 					}
 				}
+			} else if (action.indexOf('perform_captain') == 0){
+				console.log("my turn?" + myTurn(id));
+				if (myTurn(id) && puertorico.games[puertorico.players[id].game].action == "perform captain"){
+					var g = puertorico.players[id].game;
+					for (var i=0; i< puertorico.games[g].player_order.length; i++){
+						console.log("Player Order: (" + i + ") " + puertorico.players[puertorico.games[g].player_order[i]].name);
+					}
+
+					var elem = action.split(' ');
+					var n = elem[1];
+
+					console.log(puertorico.games[g].players[id].name + " is performing the role: captain");
+
+					// ok we performed the action time to switch to the next player.  if this was the last player to perform the action,
+					// then we need to switch to choose role and switch to the next player to choose a role
+					// the rotating player business is kind of a pain to implement.
+					// ok so if we switch to the next player and his role is captain (this role) then.. oops prospector
+					if (puertorico.games[g].players[id].next == puertorico.games[g].role_turn) {
+						// the next player is the one who chose this role, so we need to go back to choose role and pick the next player,
+						// but if the next person to choose role is the governor then it is the end of the round.
+						if (puertorico.games[g].players[puertorico.games[g].role_turn].next == puertorico.games[g].governor)
+						{
+							changeRound(g);
+						} else {
+							// next player is not the governor so the next player chooses a role.
+
+							puertorico.games[g].action = "";
+							puertorico.games[g].player_turn = puertorico.games[g].players[puertorico.games[g].role_turn].next;
+							puertorico.games[g].action = "choose role";
+
+						}
+					} else {
+						puertorico.games[g].player_turn = puertorico.games[g].players[id].next;
+					}
+
+
+				} else {
+				}
+
 			} else if (action.indexOf('choose_role') == 0){
 				console.log("my turn?" + myTurn(id));
 				if (myTurn(id) && puertorico.games[puertorico.players[id].game].action == "choose role"){
 					var g = puertorico.players[id].game;
 					for (var i=0; i< puertorico.games[g].player_order.length; i++){
 						console.log("Player Order: (" + i + ") " + puertorico.players[puertorico.games[g].player_order[i]].name);
+						console.log("Player Order: (" + i + ") " + puertorico.games[g].players[puertorico.games[g].player_order[i]].name);
 					}
 
 					var elem = action.split(' ');
@@ -212,21 +255,34 @@ io.sockets.on('connection', function (socket) {
 						if (puertorico.games[g].available_roles[r].id == n && ! puertorico.games[g].available_roles[r].taken ){
 							puertorico.games[g].available_roles[r].taken = true;
 							puertorico.games[g].players[id].role = puertorico.games[g].available_roles[r].name;
+							puertorico.games[g].role_turn = id; // need to keep track of the player who chooses the role so we know when we are done performing the role
+
 							sendToGame(puertorico.players[id].game, puertorico.players[id].name + " chose the role: " + puertorico.games[g].available_roles[r].name, id);
 							socket.emit('chat', {message: 'You chose the role: ' + puertorico.games[g].available_roles[r].name + '.' });
 							puertorico.games[g].players[id].money += puertorico.games[g].available_roles[r].money;
 							puertorico.games[g].available_roles[r].money = 0;
-							if ( puertorico.games[g].player_turn_idx == puertorico.games[g].player_order.length -1  ){
-								console.log("player turn:" +  puertorico.players[puertorico.games[g].player_turn].name, puertorico.games[g].player_turn_idx);
-								changeRound(g);
-								console.log("player turn:" +  puertorico.players[puertorico.games[g].player_turn].name, puertorico.games[g].player_turn_idx);
-							} else {
-								console.log("player turn:" +  puertorico.players[puertorico.games[g].player_turn].name, puertorico.games[g].player_turn_idx);
 
-								puertorico.games[g].player_turn = puertorico.games[g].player_order[puertorico.games[g].player_turn_idx++];
-								console.log("player turn:" +  puertorico.players[puertorico.games[g].player_turn].name, puertorico.games[g].player_turn_idx);
+							// if the role is not prospector, then every player will have a turn to perform the role
+							// if the role IS prospector, the player takes the money and it is the next player's turn to choose role.
+							if (puertorico.games[g].players[id].role == 'prospector'){
+								// switch to the next player to choose role.
+								if (puertorico.games[g].players[id].next == puertorico.games[g].governor)
+								{
+									changeRound(g);
+								} else {
+									// next player is not the governor so the next player chooses a role.
+									puertorico.games[g].player_turn = puertorico.games[g].players[id].next;
+
+								}
+
+
+								console.log(puertorico.players[id].name + " chose the role prospector.  Now it is " + puertorico.games[g].player_turn + "'s turn to choose role.")
+
+							} else {
+								// now this player gets to perform this role
+								puertorico.games[g].action = "perform " + puertorico.games[g].players[id].role;
+								sendToGame(g, "It is " + puertorico.players[puertorico.games[g].player_turn].name + "'s turn to " + puertorico.games[g].action + ".", -1);
 							}
-							sendToGame(g, "It is " + puertorico.players[puertorico.games[g].player_turn].name + "'s turn to " + puertorico.games[g].action + ".", -1);
 						}
 					}
 				} else {
@@ -238,7 +294,7 @@ io.sockets.on('connection', function (socket) {
 					var g = puertorico.players[id].game;
 
 					setupGame(g);
-					changeRound(g);
+					//changeRound(g);
 
 					puertorico.games[g].gameStarted	= true;
 					sendToGame(g, puertorico.players[id].name + " has started the game.", -1);
@@ -269,6 +325,7 @@ io.sockets.on('connection', function (socket) {
 
 });
 
+
 function leaveGame(id){
 	if(puertorico.players[id].inGame) {
 		var g = puertorico.players[id].game;
@@ -297,13 +354,15 @@ function leaveGame(id){
 
 function changeRound(game_id){
 	puertorico.games[game_id].action = "";
-	puertorico.games[game_id].player_order.push(puertorico.games[game_id].player_order.shift());
-	puertorico.games[game_id].player_turn = puertorico.games[game_id].player_order[0];
-	puertorico.games[game_id].player_turn_idx = 0;
+	
+	puertorico.games[game_id].governor = puertorico.games[game_id].players[ puertorico.games[game_id].players[id].next].next;
+
+	puertorico.games[game_id].player_turn = puertorico.games[game_id].governor;
+
 	puertorico.games[game_id].action = "choose role";
 	puertorico.games[game_id].round++;
 	for (var i=0; i< puertorico.games[game_id].player_order.length; i++){
-		console.log("Player Order: (" + i + ") " + puertorico.players[puertorico.games[game_id].player_order[i]].name);
+		console.log("Player Order: (" + i + ") " + puertorico.games[game_id].players[puertorico.games[game_id].player_order[i]].name);
 	}
 }
 
@@ -324,10 +383,23 @@ function setupGame(id){
 
 		// shuffle player order
 		puertorico.games[id].player_order.sort(function() {return 0.5 - Math.random()});
+
+		// now the player order is set.  let us just make it easy on ourselves
+		// and store the player order linked list style in the players info.
+		for (var i=0; i< puertorico.games[id].player_order.length; i++){
+			if (puertorico.games[id].player_order[i+1] != undefined){
+				puertorico.games[id].players[ puertorico.games[id].player_order[i] ].next = puertorico.games[id].player_order[i+1]
+			} else {
+				puertorico.games[id].players[ puertorico.games[id].player_order[i] ].next = puertorico.games[id].player_order[0]
+			}
+			console.log("player_order index:" + i + " = " + puertorico.games[id].players[ puertorico.games[id].player_order[i] ].name);
+			console.log("player_order  next:" + i + " = " + puertorico.games[id].players[ puertorico.games[id].players[ puertorico.games[id].player_order[i] ].next].name);
+
+		}
 		puertorico.games[id].round = 0;
 		puertorico.games[id].action = "choose role";
-		puertorico.games[id].player_turn_idx = 0;
 		puertorico.games[id].player_turn = puertorico.games[id].player_order[0];
+		puertorico.games[id].governor = puertorico.games[id].player_order[0];
 
 
 		// setup money
