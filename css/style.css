@@ -1,0 +1,17 @@
+#chat_area {
+postion:absolute;
+top: 250;
+}
+
+#cards {
+	height:250;
+}
+
+#cards div {
+position:absolute;
+background-image:url('/cards.png');
+width: 79px;
+height: 123px;
+
+}
+
