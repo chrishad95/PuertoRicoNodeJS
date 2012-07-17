@@ -7,23 +7,37 @@
 </head>
 <body>
 <header>
+
 </header>
-<div id="chat_div">
+
+<canvas id="game" width="768" height="400">
+Sorry, your web browser does not support Canvas content.
+</canvas>
+
+<div id="cards">
 </div>
+<div id="chat_area">
+<input id='btnListGames' type='button' value='List Games' >
+<input id='btnStartGame' type='button' value='Start Game' >
+<input id='btnLeaveGame' type='button' value='Leave Game' >
+<input id='btnCards' type='button' value='Cards' >
+<input id='btnBetOne' type='button' value='$1' >
+<input id='btnBetTwo' type='button' value='$2' >
+<input id='btnCall' type='button' value='Call' >
+<input id='btnFold' type='button' value='Fold' >
 <textarea rows=10 cols=40 id="chatwindow"></textarea><br>
 <input type="text" id="txt_input"><br>
-
 <h2>Commands</h2>
+
 <p>/nick NAME -- change your name to NAME</p>
 <p>/list -- list people online</p>
 <p>/msg NAME MESSAGE -- send a private MESSAGE to NAME</p>
+
 <p>/game new NAME PASSWORD -- create a new game NAME with password PASSWORD</p>
-<p>/game list -- get list of games</p>
 <p>/game join NAME PASSWORD -- join game named NAME</p>
-<p>/game leave -- leave current game</p>
-<p>/game start -- start current game</p>
 
 
+</div>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/client.js"></script>
