@@ -330,6 +330,9 @@ io.sockets.on('connection', function (socket) {
 					holdem.games[g].gameStarted	= true;
 					sendToGame(g, holdem.players[id].name + " has started the game.", -1);
 					sendToGame(g, "It is " + holdem.players[holdem.games[g].player_turn].name + "'s turn to " + holdem.games[g].action + ".", -1);
+					for (p in holdem.games[g].players){
+						holdem.players[p].socket.emit('game', {type: 'cards', cards: holdem.games[g].players[p].cards, board: holdem.games[g].board});
+					}
 
 				} else {
 					if (! holdem.players[id].inGame){
@@ -526,6 +529,12 @@ function change_player(g){
 			sendToGame(g, "The current bet is " + game.required_bet + ' It is now ' + holdem.players[game.player_turn].name + "'s turn.", -1);
 		}
 
+		if (game.gameStarted)
+		{
+			for (p in game.players){
+				holdem.players[p].socket.emit('game', {type: 'cards', cards: game.players[p].cards, board: game.board});
+			}
+		}
 
 	}
 }

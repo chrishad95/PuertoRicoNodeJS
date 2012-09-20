@@ -19,9 +19,16 @@ var KEY = {
 var random_commands = false;
 
 var socket;
+var image_loaded = false;
+var img = new Image();
+var message_buffer = new Array();
 
 $(function () {
-	$('#chat_area').css('top', '250px');
+	img.src = 'cards.png';
+	img.onload = function(){
+		image_loaded = true;
+	}
+
 	socket = io.connect('http://rasputin.dnsalias.com:9090');
 	socket.on('chat', function (data) {
 		appendchat(data.message);
@@ -34,32 +41,35 @@ $(function () {
 
 			for (var i=0; i<cardsuits.length; i++){
 				for (var j=0; j<cardvals.length; j++){
-					positions[cardvals[j] + cardsuits[i]] = {x: (-1 * j*79), y:(-1 * i*123)};	
+					positions[cardvals[j] + cardsuits[i]] = {x: ( j*79), y:(i*123)};	
 				}
 			}
 			console.log(positions);
-			$('#cards').html('');
-			var card_counter = 0;
-			for (c in data.cards)
-			{
-				$('#cards').append('<div class="' + data.cards[c] + '">' + data.cards[c] + '</div>');
-				$('div.' + data.cards[c]).css('background-position', positions[data.cards[c]].x + "px " + positions[data.cards[c]].y + "px");
-				$('div.' + data.cards[c]).css('left', '' + (card_counter * 79) + 'px');
-				$('div.' + data.board[c]).css('top', '0px');
+			// need to draw cards onto the canvas
 
-				console.log(data.cards[c] + ' x=' + positions[data.cards[c]].x + ' y=' + positions[data.cards[c]].y );
-				card_counter++;
-			}
-			console.log("board:");
-			card_counter = 0;
-			for (c in data.board)
+			var canvas = document.getElementById("game");
+			var ctx = canvas.getContext("2d");
+			ctx.clearRect(0, 0, canvas.width, canvas.height);
+			if (image_loaded)
 			{
-				$('#cards').append('<div class="' + data.board[c] + '">' + data.board[c] + '</div>');
-				$('div.' + data.board[c]).css('background-position', positions[data.board[c]].x + "px " + positions[data.board[c]].y + "px");
-				$('div.' + data.board[c]).css('left', '' + (card_counter * 79) + 'px');
-				$('div.' + data.board[c]).css('top', '' + 123 + 'px');
-				console.log(data.board[c] + ' x=' + positions[data.board[c]].x + ' y=' + positions[data.board[c]].y );
-				card_counter++;
+				//context.drawImage(img,sx,sy,swidth,sheight,dx,dy,dwidth,dheight);
+				//ctx.drawImage(img,0,0,79,123,0,0,79,123);
+
+				var card_counter = 0;
+				for (c in data.cards)
+				{
+					ctx.drawImage(img,positions[data.cards[c]].x,positions[data.cards[c]].y,79,123,card_counter * 79,0,79,123);
+					console.log(data.cards[c] + ' x=' + positions[data.cards[c]].x + ' y=' + positions[data.cards[c]].y );
+					card_counter++;
+				}
+				console.log("board:");
+				card_counter = 0;
+				for (c in data.board)
+				{
+					console.log(data.board[c] + ' x=' + positions[data.board[c]].x + ' y=' + positions[data.board[c]].y );
+					ctx.drawImage(img,positions[data.board[c]].x,positions[data.board[c]].y,79,123,card_counter * 79,124,79,123);
+					card_counter++;
+				}
 			}
 		}else{
 			console.log(data);
@@ -95,12 +105,13 @@ $(function () {
 		}
 
 	});
-	$("#btnCards").click (function() {socket.emit('game', 'cards');});
+
 	$("#btnListGames").click (function() {socket.emit('game', 'list');});
 	$("#btnStartGame").click (function() {socket.emit('game', 'start');});
 	$("#btnLeaveGame").click (function() {socket.emit('game', 'leave');});
 	$("#btnBetOne").click (function() {socket.emit('game', 'bet 1');});
 	$("#btnBetTwo").click (function() {socket.emit('game', 'bet 2');});
+	$("#btnCheck").click (function() {socket.emit('game', 'bet 0');});
 	$("#btnCall").click (function() {socket.emit('game', 'call');});
 	$("#btnFold").click (function() {socket.emit('game', 'fold');});
 
@@ -143,9 +154,12 @@ function gameloop(){
 		socket.emit(commands[c].type, commands[c].message);
 	}
 }
-
 function appendchat(s) {
-    var t = $("#chatwindow").val();
-    t = t + String.fromCharCode(13) + s;
-    $("#chatwindow").val(s);
+	message_buffer.push(s);
+	if (message_buffer.length > 20)
+	{
+		message_buffer = message_buffer.splice(-20);
+	}
+    $("#chatwindow").val('');
+    $("#chatwindow").val(message_buffer.join(String.fromCharCode(13)  ));
 }
