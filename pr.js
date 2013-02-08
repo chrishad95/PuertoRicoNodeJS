@@ -291,7 +291,13 @@ io.sockets.on('connection', function (socket) {
 				if (myTurn(id) && holdem.games[holdem.players[id].game].action == "bet"){
 					var game = holdem.games[holdem.players[id].game];
 					var elem = action.split(' ');
-					bet = parseInt(elem[1]);
+					if (elem[1] == "pot"){
+						bet = game.pot;
+					} elseif (elem[1] == "halfpot"){
+						bet = game.pot / 2;
+					} else {
+						bet = parseInt(elem[1]);
+					}
 					total_bet = bet + game.players[id].bet;
 
 					if (total_bet == game.required_bet){

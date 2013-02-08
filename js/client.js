@@ -110,6 +110,8 @@ $(function () {
 	$("#btnStartGame").click (function() {socket.emit('game', 'start');});
 	$("#btnLeaveGame").click (function() {socket.emit('game', 'leave');});
 	$("#btnBetOne").click (function() {socket.emit('game', 'bet 1');});
+	$("#btnBetPot").click (function() {socket.emit('game', 'bet pot');});
+	$("#btnBetHalfPot").click (function() {socket.emit('game', 'bet halfpot');});
 	$("#btnBetTwo").click (function() {socket.emit('game', 'bet 2');});
 	$("#btnCheck").click (function() {socket.emit('game', 'bet 0');});
 	$("#btnCall").click (function() {socket.emit('game', 'call');});
