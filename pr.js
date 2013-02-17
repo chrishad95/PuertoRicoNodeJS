@@ -1,5 +1,10 @@
-var app = require('express').createServer()
-  , io = require('socket.io').listen(app);
+var express = require('express');
+var app = express()
+  , http = require('http')
+  , server = http.createServer(app)
+  , io = require('socket.io').listen(server);
+
+server.listen(9090);
 
 var puertorico  = {
 	games: new Array(),
@@ -22,9 +27,6 @@ puertorico.good_types["tobacco"] = 9;
 puertorico.good_types["corn"] = 10;
 puertorico.good_types["sugar"] = 11;
 puertorico.good_types["indigo"] = 11;
-
-
-app.listen(9090);
 
 app.get('/', function (req, res) {
     res.sendfile(__dirname + '/index.html');

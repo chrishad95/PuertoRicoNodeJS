@@ -29,7 +29,7 @@ $(function () {
 		image_loaded = true;
 	}
 
-	socket = io.connect('http://rasputin.dnsalias.com:9090');
+	socket = io.connect('http://localhost:9090');
 	socket.on('chat', function (data) {
 		appendchat(data.message);
 		});
