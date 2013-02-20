@@ -7,26 +7,26 @@ var app = express()
 server.listen(9090);
 
 var puertorico  = {
-	games: new Array(),
-	players: new Array(),
-	player_names: new Array(),
+	games: [],
+	players: [],
+	player_names: [],
 	games_counter: 0,
 	guests: 0
 };
 
-puertorico.plantation_types = new Array();
-puertorico.plantation_types["coffee"] = 8;
-puertorico.plantation_types["tobacco"] = 9;
-puertorico.plantation_types["corn"] = 10;
-puertorico.plantation_types["sugar"] = 11;
-puertorico.plantation_types["indigo"] = 12;
+puertorico.plantation_types = [];
+puertorico.plantation_types.coffee = 8;
+puertorico.plantation_types.tobacco = 9;
+puertorico.plantation_types.corn = 10;
+puertorico.plantation_types.sugar = 11;
+puertorico.plantation_types.indigo = 12;
 
-puertorico.good_types = new Array();
-puertorico.good_types["coffee"] = 9;
-puertorico.good_types["tobacco"] = 9;
-puertorico.good_types["corn"] = 10;
-puertorico.good_types["sugar"] = 11;
-puertorico.good_types["indigo"] = 11;
+puertorico.good_types = [];
+puertorico.good_types.coffee = 9;
+puertorico.good_types.tobacco = 9;
+puertorico.good_types.corn = 10;
+puertorico.good_types.sugar = 11;
+puertorico.good_types.indigo = 11;
 
 app.get('/', function (req, res) {
     res.sendfile(__dirname + '/index.html');
