@@ -28,8 +28,9 @@ $(function () {
 	img.onload = function(){
 		image_loaded = true;
 	}
+	var hostname = location.hostname;
 
-	socket = io.connect('http://localhost:9090');
+	socket = io.connect('http://' + hostname + ':9090');
 	socket.on('chat', function (data) {
 		appendchat(data.message);
 		});
