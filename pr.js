@@ -4,29 +4,8 @@ var app = express()
   , server = http.createServer(app)
   , io = require('socket.io').listen(server);
 
-server.listen(9090);
 
-var puertorico  = {
-	games: [],
-	players: [],
-	player_names: [],
-	games_counter: 0,
-	guests: 0
-};
-
-puertorico.plantation_types = [];
-puertorico.plantation_types.coffee = 8;
-puertorico.plantation_types.tobacco = 9;
-puertorico.plantation_types.corn = 10;
-puertorico.plantation_types.sugar = 11;
-puertorico.plantation_types.indigo = 12;
-
-puertorico.good_types = [];
-puertorico.good_types.coffee = 9;
-puertorico.good_types.tobacco = 9;
-puertorico.good_types.corn = 10;
-puertorico.good_types.sugar = 11;
-puertorico.good_types.indigo = 11;
+var puertorico  = {};
 
 app.get('/', function (req, res) {
     res.sendfile(__dirname + '/index.html');
@@ -38,113 +17,88 @@ app.get('/js/client.js', function (req, res) {
     res.sendfile(__dirname + '/js/client.js');
 });
 
-io.sockets.on('connection', function (socket) {
+function init() {
+	puertorico.players = [];
+	puertorico.games = [];
+	puertorico.player_names = [];
+	puertorico.games_counter = 0;
+	puertorico.guests = 0;
+
+	puertorico.names = [];
+
+	puertorico.plantation_types = [];
+	puertorico.plantation_types.coffee = 8;
+	puertorico.plantation_types.tobacco = 9;
+	puertorico.plantation_types.corn = 10;
+	puertorico.plantation_types.sugar = 11;
+	puertorico.plantation_types.indigo = 12;
 	
-	var id = puertorico.guests++;
-	var p = new Player(socket, "Guest" + id );
+	puertorico.good_types = [];
+	puertorico.good_types.coffee = 9;
+	puertorico.good_types.tobacco = 9;
+	puertorico.good_types.corn = 10;
+	puertorico.good_types.sugar = 11;
+	puertorico.good_types.indigo = 11;
+
+	server.listen(9090);
+	io.configure( function() {
+		io.set("transports", ["websocket"]);
+		io.set("log level", 2);
+	});
+	setEventHandlers();
+
+}
+
+var setEventHandlers = function() {
+	io.sockets.on('connection', onSocketConnection);
+};
+
+function onSocketConnection(client) {
+	console.log("Client connected: " + client.id);
+
+	var p = new Player(client);
 	p.inGame = false;
 
-	puertorico.players["" + id] = p;
-	puertorico.players["" + id].names = [];
-	puertorico.players[id].names.unshift({name: p.name, tick: new Date().getTime()});
+	//funky names code
+	// basically want to allow players to change their name, but not change it
+	// to something that another player has chosen
+	p.names = [];
+	p.name = "Guest" + puertorico.guests++;
+	p.names.unshift({name: p.name, tick: new Date().getTime()});
 
-	socket.emit('chat', {message: 'You are now known as ' + p.name});
-	socket.set('id',id);
+	puertorico.players.push(p);
+
+	client.join('lobby');
+    client.on('chat', onChat);
+	client.on('set nickname', onSetNickname);
 
 
-    socket.on('chat', function (data) {
-		socket.get('id', function(err,id){
-			// if player is in a game then only people in the game can see his message.
-			if (puertorico.players[id].inGame ){
-				sendToGame(puertorico.players[id].game, puertorico.players[id].name + ': ' + data.message, id);
-			} else {
-				for (i in puertorico.players){
-					if (! puertorico.players[i].inGame && id != i)
-					{
-						puertorico.players[i].socket.emit('chat',  {message: puertorico.players[id].name + ': ' + data.message});
-					}
-				}
-			}
-        	console.log(puertorico.players[id].name + ': ' + data.message);
-		});
-    });
+	client.broadcast.to('lobby').emit('chat', {message: p.name + ' has joined the game.'});
+	client.emit('chat', {message: 'Welcome to the game, you are now known as ' + p.name});
 
-	socket.on('set nickname', function(name) {
-		socket.get('id', function(err,id){
-			name = name.split(' ')[0];
-			
-			puertorico.players[id].names.unshift({name: name, tick: new Date().getTime() });
-			var oldname = puertorico.players[id].name;
-			puertorico.players[id].name = name;
-			var changed = true;
-			for (p in puertorico.players){
-				if (p != id && puertorico.players[p].name == name){
-					if (puertorico.players[p].names[0].tick < puertorico.players[id].names[0].tick){
-						puertorico.players[id].names.shift();
-						puertorico.players[id].name = puertorico.players[id].names[0].name;
-						changed = false;
-					} else {
-						puertorico.players[p].names.shift();
-						puertorico.players[p].name = puertorico.players[p].names[0].name;
-					}
-				}
-			}
-			for (var i=0; i<puertorico.players[id].names.length; i++){
-				console.log("Name: " + puertorico.players[id].names[i].name + ", time:" + puertorico.players[id].names[i].tick);
-			}
-			if (changed) {
-				if (puertorico.players[id].inGame){
-					puertorico.games[puertorico.players[id].game].players[id].name = name;
-				}
-				socket.broadcast.emit('chat', {message: oldname + ' is now known as ' + name});
-				socket.emit('chat', {message: 'You are now known as ' + name});
-			}
-		});
+	client.on('list players', onListPlayers);
 
-	});
+	//client.on('private message', function(data) {
+	//	console.log("private message code");
+	//	socket.get('id', function(err,id){
+	//		var elem = data.split(' ');
+	//		var n = elem.shift();
 
-	socket.on('list players', function() {
-		var names = [];
-		for (i in puertorico.players) {
-			names.push(puertorico.players[i].name);
-		}
-		socket.emit('chat', {message: 'Players: ' + names.join(',')});
-	});
+	//		for (i in puertorico.players) {
+	//			if (puertorico.players[i].name == n){
+	//				puertorico.players[i].socket.emit("chat", {message: "Private Message from " + puertorico.players[id].name + ": " + elem.join(" ")});
+	//			}
+	//		}
+	//		console.log("private message from id: " + id);
+	//	});
+	//});
 
-	socket.on('private message', function(data) {
-		console.log("private message code");
-		socket.get('id', function(err,id){
-			var elem = data.split(' ');
-			var n = elem.shift();
-
-			for (i in puertorico.players) {
-				if (puertorico.players[i].name == n){
-					puertorico.players[i].socket.emit("chat", {message: "Private Message from " + puertorico.players[id].name + ": " + elem.join(" ")});
-				}
-			}
-			console.log("private message from id: " + id);
-		});
-	});
-
+	client.on('new game', onNewGame);
+	
 	socket.on('game', function(action) {
 		socket.get('id', function(err,id){
 
 			if (action.indexOf('new') == 0){
-				var elem = action.split(' ');
-				var g = new Game(elem[1], elem[2]);
-				g.id = puertorico.games_counter++;
-				g.max_players = 5;
-				g.players["" + id] = {id: id};
-				g.players[id].isPlayer = true;	
-				g.players[id].name = puertorico.players[id].name;	
-				g.num_players = 1;
-				g.num_spectators = 0;
-				g.gameStarted = false;
-				g.status = 'Waiting for players';
-
-				puertorico.players[id].inGame = true;
-				puertorico.players[id].game = g.id; 
-				puertorico.games["" + g.id] = g;
 
 			} else if (action.indexOf('list') == 0){
 				var names = [];
@@ -302,17 +256,33 @@ io.sockets.on('connection', function (socket) {
 		});
 
 	});
-	socket.on('disconnect', function() {
-		socket.get('id', function(err,id){
-			leaveGame(id);
-			console.log(puertorico.players[id].name + " disconnected.");
-			delete puertorico.players[id];
-		});
-
-	});
-
+	
+	socket.on('disconnect', onClientDisconnect );
 });
 
+function playerById(id){
+	var i;
+	for (i=0; i<puertorico.players.length; i++){
+		if (puertorico.players[i].id == $id){
+			return puertorico.players[i];
+		}
+	}
+}
+
+function onClientDisconnect() {
+
+	var removePlayer = playerById(this.id);
+	console.log(removePlayer.name + " has disconnected.");
+
+	if (!removePlayer){
+		return;
+	}
+	puertorico.players.splice(puertorico.players.indexOf(removePlayer), 1);
+	this.broadcast.emit("remove player", {id: this.id});
+
+	//	leaveGame(id);
+	//	delete puertorico.players[id];
+}
 
 function leaveGame(id){
 	if(puertorico.players[id].inGame) {
@@ -746,6 +716,15 @@ function setupGame(id){
 	}
 }
 
+function onNewGame(data){
+	
+	var player = playerById(this.id);
+	if (player){
+		var newGame = new Game(data.name, data.password);
+		newGame.addPlayer(player);
+	}
+}
+
 function sendToGame(id, message, player_id){
 	for (i in puertorico.players){
 		if (puertorico.players[i].inGame && puertorico.players[i].game == id && i != player_id)
@@ -761,7 +740,86 @@ function Player(socket, name){
 }
 
 function Game(name, password){
+
 	this.name = name;
 	this.password = password;
 	this.players = [];
+	this.spectators = [];
+	this.id = puertorico.games_counter++;
+	this.max_players = 5;
+	this.num_players = 0;
+	this.num_spectators = 0;
+	this.gameStarted = false;
+	this.status = 'Waiting for players';
+
+
+	// need to store game data for this player 
+	// if i store game data in the parent player object
+	// then the player can only be in one game...
+	// prolly not good.
+
+	this.addPlayer = function (player){
+		if (player.inGame) {
+			return;
+		}
+
+		if (this.num_players >= this.max_players) {
+			return;
+		} else
+		{
+			this.players.push(player);
+			player.inGame = true;
+			player.game = this.id; 
+		}
+
+	};
+
+	puertorico.games.push(this);
+}
+
+function onChat(data){
+
+	// if player is in a game then only people in the game can see his message.
+	var playerChat = playerById(this.id);
+	if (playerChat) {
+		if (playerChat.inGame){
+			socket.broadcast.to(playerChat.game).emit('chat', {message: playerChat.name + ": " + data.message});
+		} else {
+			socket.broadcast.to("lobby").emit('chat', {message: playerChat.name + ": " + data.message});
+		}
+		console.log(puertorico.players[id].name + ': ' + data.message);
+	}
+}
+function onSetNickname(data){
+	var player = playerById(this.id);
+	if (player) {
+	
+		// look to see if this name has already been used once,
+		// i know that sucks, but i don't want to spend a lot of time
+		// on this when it should really just be a login anyway
+		var i;
+		for (i=0; i<puertorico.names.length; i++){
+			if (puertorico.names[i] == data.name){
+				return;
+			}
+		}
+		var oldname = "" + player.name;
+		player.name = data.name;
+		if (player.inGame){
+			socket.broadcast.to(player.game).emit('chat', {message: oldname + ' is now known as ' + player.name});
+		} else {
+			socket.broadcast.to("lobby").emit('chat', {message: oldname + ' is now known as ' + player.name});
+		}
+		}
+		socket.emit('chat', {message: 'You are now known as ' + player.name});
+	}
+	
+}
+
+function onListPlayers(){
+		var names = [];
+		for (i in puertorico.players) {
+			names.push(puertorico.players[i].name);
+		}
+		socket.emit('chat', {message: 'Players: ' + names.join(',')});
 }
