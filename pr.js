@@ -47,7 +47,7 @@ function init() {
 	});
 	setEventHandlers();
 
-}
+};
 
 var setEventHandlers = function() {
 	io.sockets.on('connection', onSocketConnection);
@@ -73,197 +73,19 @@ function onSocketConnection(client) {
 	client.on('set nickname', onSetNickname);
 
 
-	client.broadcast.to('lobby').emit('chat', {message: p.name + ' has joined the game.'});
-	client.emit('chat', {message: 'Welcome to the game, you are now known as ' + p.name});
+	client.broadcast.to('lobby').emit('chat', {message: p.name + ' has entered the lobby.'});
+	client.emit('chat', {message: 'Welcome to the lobby, you are now known as ' + p.name});
 
 	client.on('list players', onListPlayers);
 
-	//client.on('private message', function(data) {
-	//	console.log("private message code");
-	//	socket.get('id', function(err,id){
-	//		var elem = data.split(' ');
-	//		var n = elem.shift();
-
-	//		for (i in puertorico.players) {
-	//			if (puertorico.players[i].name == n){
-	//				puertorico.players[i].socket.emit("chat", {message: "Private Message from " + puertorico.players[id].name + ": " + elem.join(" ")});
-	//			}
-	//		}
-	//		console.log("private message from id: " + id);
-	//	});
-	//});
-
 	client.on('new game', onNewGame);
-	
-	socket.on('game', function(action) {
-		socket.get('id', function(err,id){
-
-			if (action.indexOf('new') == 0){
-
-			} else if (action.indexOf('list') == 0){
-				var names = [];
-				for (i in puertorico.games) {
-					names.push ("" + i + ":" + puertorico.games[i].name) ;
-				}
-				socket.emit('chat', {message: 'Games: ' + names.join(',')});
-
-			} else if (action.indexOf('my games') == 0){
-				var names = [];
-				for (g in puertorico.games) {
-					for (p in puertorico.games[g].players){
-						if (puertorico.games[g].players[p].id == id){
-							names.push(puertorico.games[g].name);
-						}
-					}
-				}
-				socket.emit('chat', {message: 'Your Games: ' + names.join(',')});
-
-			} else if (action.indexOf('leave') == 0){
-				leaveGame(id);
-			} else if (action.indexOf('status') == 0){
-				if (puertorico.players[id].inGame){
-					socket.emit('game', puertorico.games[puertorico.players[id].game]);
-				}
-
-			} else if (action.indexOf('join') == 0){
-
-				var elem = action.split(' ');
-				var n = elem[1];
-				var pword = elem[2]; /// optional password
-
-				if (puertorico.players[id].inGame)
-				{
-					socket.emit('chat', {message: 'You are already in a game.'});
-				} else {
-					if (puertorico.games[n] != undefined){
-							puertorico.games[n].players["" + id] = {id: id};
-							puertorico.games[n].players[id].name = puertorico.players[id].name;
-							if (puertorico.games[n].num_players < puertorico.games[n].max_players ){
-								puertorico.games[n].players[id].isPlayer = true;	
-								puertorico.games[n].num_players++;
-							} else {
-								puertorico.games[n].players[id].isPlayer = false;	
-								puertorico.games[n].num_spectators++;
-							}
-							puertorico.players[id].inGame = true;
-							puertorico.players[id].game = n;
-							sendToGame(n, puertorico.players[id].name + " has joined the game.", id);
-							if (puertorico.games[n].players[id].isPlayer){
-								socket.emit('chat', {message: 'You have joined the game, ' + puertorico.games[n].name + ', as a player.' });
-							} else {
-								socket.emit('chat', {message: 'You have joined the game, ' + puertorico.games[n].name + ', as a spectator.' });
-							}
-					}
-				}
-			} else if (action.indexOf('perform_captain') == 0){
-
-				perform_captain(id, action.split(' '));
-
-			} else if (action.indexOf('perform_craftsman') == 0){
-				console.log("can " + id + " perform craftsman?");
-
-				perform_craftsman(id, action.split(' '));
-				
-			} else if (action.indexOf('perform_trader') == 0){
-
-				perform_trader(id, action.split(' '));
-				
-			} else if (action.indexOf('perform_builder') == 0){
-
-				perform_builder(id, action.split(' '));
-				
-			} else if (action.indexOf('perform_settler') == 0){
-
-				perform_settler(id, action.split(' '));
-				
-			} else if (action.indexOf('perform_mayor') == 0){
-
-				perform_mayor(id, action.split(' '));
-
-			} else if (action.indexOf('choose_role') == 0){
-				console.log("my turn?" + myTurn(id));
-				if (myTurn(id) && puertorico.games[puertorico.players[id].game].action == "choose role"){
-					var g = puertorico.players[id].game;
-					for (var i=0; i< puertorico.games[g].player_order.length; i++){
-						console.log("Player Order: (" + i + ") " + puertorico.players[puertorico.games[g].player_order[i]].name);
-						console.log("Player Order: (" + i + ") " + puertorico.games[g].players[puertorico.games[g].player_order[i]].name);
-					}
-
-					var elem = action.split(' ');
-					var n = elem[1];
-					var role_is_available = false;
-					
-					for (r in puertorico.games[g].available_roles){
-						if (puertorico.games[g].available_roles[r].id == n && ! puertorico.games[g].available_roles[r].taken ){
-							puertorico.games[g].available_roles[r].taken = true;
-							puertorico.games[g].players[id].role = puertorico.games[g].available_roles[r].name;
-							puertorico.games[g].role_turn = id; // need to keep track of the player who chooses the role so we know when we are done performing the role
-
-							sendToGame(puertorico.players[id].game, puertorico.players[id].name + " chose the role: " + puertorico.games[g].available_roles[r].name, id);
-							socket.emit('chat', {message: 'You chose the role: ' + puertorico.games[g].available_roles[r].name + '.' });
-							puertorico.games[g].players[id].money += puertorico.games[g].available_roles[r].money;
-							puertorico.games[g].available_roles[r].money = 0;
-
-							// if the role is not prospector, then every player will have a turn to perform the role
-							// if the role IS prospector, the player takes the money and it is the next player's turn to choose role.
-							if (puertorico.games[g].players[id].role == 'prospector'){
-								// switch to the next player to choose role.
-								if (puertorico.games[g].players[id].next == puertorico.games[g].governor)
-								{
-									changeRound(g);
-								} else {
-									// next player is not the governor so the next player chooses a role.
-									puertorico.games[g].player_turn = puertorico.games[g].players[id].next;
-
-								}
-
-
-								console.log(puertorico.players[id].name + " chose the role prospector.  Now it is " + puertorico.games[g].player_turn + "'s turn to choose role.")
-
-							} else {
-								// now this player gets to perform this role
-								puertorico.games[g].action = "perform " + puertorico.games[g].players[id].role;
-								sendToGame(g, "It is " + puertorico.players[puertorico.games[g].player_turn].name + "'s turn to " + puertorico.games[g].action + ".", -1);
-							}
-						}
-					}
-				} else {
-				}
-			} else if (action.indexOf('start') == 0){
-				// should be at least 3 puertorico.players first 3-5 puertorico.players will be puertorico.players, else will be spectators.
-				if (puertorico.players[id].inGame && ! puertorico.games[puertorico.players[id].game].gameStarted && puertorico.games[puertorico.players[id].game].num_players > 2){
-					
-					var g = puertorico.players[id].game;
-
-					setupGame(g);
-					//changeRound(g);
-
-					puertorico.games[g].gameStarted	= true;
-					sendToGame(g, puertorico.players[id].name + " has started the game.", -1);
-					sendToGame(g, "It is " + puertorico.players[puertorico.games[g].player_turn].name + "'s turn to " + puertorico.games[g].action + ".", -1);
-
-
-				} else {
-					if (! puertorico.players[id].inGame){
-						socket.emit('chat', {message: 'Sorry, you are not in a game!'});
-					} else if (puertorico.games[puertorico.players[id].game].gameStarted) {
-						socket.emit('chat', {message: 'The game is already started.'});
-					} else if (puertorico.games[puertorico.players[id].game].num_players <3) {
-						socket.emit('chat', {message: 'Sorry, you need at least 3 players.'});
-					}
-				}
-			}
-		});
-
-	});
-	
-	socket.on('disconnect', onClientDisconnect );
-});
+	client.on('disconnect', onClientDisconnect );
+};
 
 function playerById(id){
 	var i;
 	for (i=0; i<puertorico.players.length; i++){
-		if (puertorico.players[i].id == $id){
+		if (puertorico.players[i].id == id){
 			return puertorico.players[i];
 		}
 	}
@@ -768,10 +590,27 @@ function Game(name, password){
 		} else
 		{
 			this.players.push(player);
+			this.num_players++;
 			player.inGame = true;
 			player.game = this.id; 
+			player.socket.join("" + this.id);
+			player.socket.broadcast.to("" + this.id).emit('chat', {message: p.name + ' has joined the game.'});
+			player.socket.emit('chat', {message: 'You are now in the game: ' + this.name });
 		}
+		return;
+	};
 
+	this.addSpectator = function(player){
+		if (player.inGame) {
+			return;
+		}
+		this.spectators.push(player);
+		this.num_spectators++;
+		player.inGame = true;
+		player.game = this.id; 
+		player.socket.join("" + this.id);
+		player.socket.emit('chat', {message: 'You are a spectator in the game: ' + this.name });
+		return;
 	};
 
 	puertorico.games.push(this);
@@ -790,10 +629,10 @@ function onChat(data){
 		console.log(puertorico.players[id].name + ': ' + data.message);
 	}
 }
+
 function onSetNickname(data){
 	var player = playerById(this.id);
 	if (player) {
-	
 		// look to see if this name has already been used once,
 		// i know that sucks, but i don't want to spend a lot of time
 		// on this when it should really just be a login anyway
@@ -810,16 +649,17 @@ function onSetNickname(data){
 		} else {
 			socket.broadcast.to("lobby").emit('chat', {message: oldname + ' is now known as ' + player.name});
 		}
-		}
 		socket.emit('chat', {message: 'You are now known as ' + player.name});
 	}
 	
 }
 
-function onListPlayers(){
+function onListPlayers() {
 		var names = [];
 		for (i in puertorico.players) {
 			names.push(puertorico.players[i].name);
 		}
 		socket.emit('chat', {message: 'Players: ' + names.join(',')});
 }
+
+init();
