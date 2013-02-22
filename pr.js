@@ -85,7 +85,7 @@ function onSocketConnection(client) {
 function playerById(id){
 	var i;
 	for (i=0; i<puertorico.players.length; i++){
-		if (puertorico.players[i].id == id){
+		if (puertorico.players[i].socket.id == id){
 			return puertorico.players[i];
 		}
 	}
@@ -618,15 +618,16 @@ function Game(name, password){
 
 function onChat(data){
 
+	console.log("clientid:" + this.id);
 	// if player is in a game then only people in the game can see his message.
 	var playerChat = playerById(this.id);
 	if (playerChat) {
+		console.log(playerChat.name + ': ' + data.message);
 		if (playerChat.inGame){
-			socket.broadcast.to(playerChat.game).emit('chat', {message: playerChat.name + ": " + data.message});
+			this.broadcast.to(playerChat.game).emit('chat', {message: playerChat.name + ": " + data.message});
 		} else {
-			socket.broadcast.to("lobby").emit('chat', {message: playerChat.name + ": " + data.message});
+			this.broadcast.to("lobby").emit('chat', {message: playerChat.name + ": " + data.message});
 		}
-		console.log(puertorico.players[id].name + ': ' + data.message);
 	}
 }
 
