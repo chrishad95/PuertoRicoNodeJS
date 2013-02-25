@@ -85,17 +85,23 @@ $(function () {
 		if (e.which == 13 ){
 
 			var t = this.value;
+			var pieces = [];
+			pieces = t.split(' ');
 			if (t.substr(0,5) == '/nick') {
 				socket.emit('set nickname', t.substr(6));
 			} else if (t.substr(0,5) == '/game') {
 				socket.emit('game', t.substr(6));
-			} else if (t.substr(0,6) == '/login') {
-				socket.emit('login', t.substr(7));
-			} else if (t.substr(0,4) == '/msg') {
+			} else if (pieces[0] == '/new') {
+				socket.emit('new game', {name: pieces[1], password: pieces[2]});
+			} else if (pieces[0] == '/leave') {
+				socket.emit('leave', {});
+			} else if (pieces[0] == '/login') {
+				socket.emit('login', {username: pieces[1], password: pieces[2]});
+			} else if (pieces[0] == '/msg') {
 				socket.emit('private message', t.substr(5) );
 			} else if (t.substr(0,5) == '/list') {
 				socket.emit('list players');
-			} else if (t.substr(0,6) == '/clear') {
+			} else if (pieces[0] == '/clear') {
     			$("#chatwindow").val("");
 			} else
 			{
