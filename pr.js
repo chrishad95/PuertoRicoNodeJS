@@ -23,6 +23,7 @@ function init() {
 	puertorico.player_names = [];
 	puertorico.games_counter = 0;
 	puertorico.guests = 0;
+	puertorico.accounts = [];
 
 	puertorico.names = [];
 
@@ -79,6 +80,7 @@ function onSocketConnection(client) {
 	client.on('list players', onListPlayers);
 
 	client.on('new game', onNewGame);
+	client.on('login', onLogin);
 	client.on('disconnect', onClientDisconnect );
 };
 
@@ -88,6 +90,44 @@ function playerById(id){
 		if (puertorico.players[i].socket.id == id){
 			return puertorico.players[i];
 		}
+	}
+}
+
+function onLogin(data) {
+	console.log('inside onLogin:');
+
+	for (d in data){
+		console.log(d + ':' + data[d]);
+
+	}
+	var success = false;
+	var found = false;
+	var player = playerById(this.id);
+	// need to handle multiple logins with same creds
+	// if a cred is logged in, then you should not be able to log 
+	// in again with that cred until the first one is disconnected
+	if (player && ! player.isLoggedIn){
+		for (i=0; i<puertorico.accounts.length; i++){
+			if (puertorico.accounts[i].username == data.username){
+				found = true;
+				if (puertorico.accounts[i].password == data.password){
+					success = true;
+					player.name = data.username;
+				}
+			}
+		}
+		if (! found){
+			// username was not found, add username to the 'table'
+			puertorico.accounts.push( {username: data.username, password: data.password});
+			success = true;
+			player.name = data.username;
+		}
+	
+		player.isLoggedIn = success;
+		// so now what should we do if this player is logged in.
+		// we should probably check to see if he was in a game and got disconnected
+		// and if so reconnect him.
+
 	}
 }
 
@@ -541,7 +581,8 @@ function setupGame(id){
 function onNewGame(data){
 	
 	var player = playerById(this.id);
-	if (player){
+	if (player && player.isLoggedIn){
+		console.log("creating new game: " + data.name + ", " + data.password);
 		var newGame = new Game(data.name, data.password);
 		newGame.addPlayer(player);
 	}
@@ -559,6 +600,7 @@ function sendToGame(id, message, player_id){
 function Player(socket, name){
 	this.socket = socket;
 	this.name = name;
+	this.isLoggedIn = false;
 }
 
 function Game(name, password){
@@ -593,8 +635,9 @@ function Game(name, password){
 			this.num_players++;
 			player.inGame = true;
 			player.game = this.id; 
-			player.socket.join("" + this.id);
-			player.socket.broadcast.to("" + this.id).emit('chat', {message: p.name + ' has joined the game.'});
+			player.socket.leave("lobby");
+			player.socket.join("game" + this.id);
+			player.socket.broadcast.to("game" + this.id).emit('chat', {message: player.name + ' has joined the game.'});
 			player.socket.emit('chat', {message: 'You are now in the game: ' + this.name });
 		}
 		return;
@@ -619,12 +662,16 @@ function Game(name, password){
 function onChat(data){
 
 	console.log("clientid:" + this.id);
+	for (r in io.sockets.manager.roomClients[this.id]) {
+		console.log("Room:" + r + ":" + this.id + ": " + io.sockets.manager.roomClients[this.id][r]);
+	}
 	// if player is in a game then only people in the game can see his message.
 	var playerChat = playerById(this.id);
 	if (playerChat) {
 		console.log(playerChat.name + ': ' + data.message);
 		if (playerChat.inGame){
-			this.broadcast.to(playerChat.game).emit('chat', {message: playerChat.name + ": " + data.message});
+			console.log(this.id + " is in a game: " + playerChat.game);
+			this.broadcast.to("game" + playerChat.game).emit('chat', {message: playerChat.name + ": " + data.message});
 		} else {
 			this.broadcast.to("lobby").emit('chat', {message: playerChat.name + ": " + data.message});
 		}
