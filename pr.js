@@ -70,7 +70,7 @@ function onSocketConnection(client) {
 	puertorico.players.push(p);
 
 	client.join('lobby');
-    client.on('chat', onChat);
+	client.on('chat', onChat);
 	client.on('set nickname', onSetNickname);
 
 
@@ -103,10 +103,24 @@ function onLogin(data) {
 	var success = false;
 	var found = false;
 	var player = playerById(this.id);
+	var i;
 	// need to handle multiple logins with same creds
 	// if a cred is logged in, then you should not be able to log 
 	// in again with that cred until the first one is disconnected
 	if (player && ! player.isLoggedIn){
+		for (i=0; i<puertorico.players.length; i++){
+			// check to see if this username is already 
+			// logged in
+			// what should we do. log the other player out or deny this player
+			// we should probably log out the other player. 
+			// later in this code, we will want to find any games that this 
+			// username may have been in
+			
+			if (puertorico.players[i].name == data.username){
+				console.log("This username is already logged in.  (" + data.username + ")");
+			}
+
+		}
 		for (i=0; i<puertorico.accounts.length; i++){
 			if (puertorico.accounts[i].username == data.username){
 				found = true;
