@@ -60,13 +60,7 @@ function onSocketConnection(client) {
 	var p = new Player(client);
 	p.inGame = false;
 
-	//funky names code
-	// basically want to allow players to change their name, but not change it
-	// to something that another player has chosen
-	p.names = [];
 	p.name = "Guest" + puertorico.guests++;
-	p.names.unshift({name: p.name, tick: new Date().getTime()});
-
 	puertorico.players.push(p);
 
 	client.join('lobby');
@@ -94,39 +88,47 @@ function playerById(id){
 }
 
 function onLogin(data) {
-	console.log('inside onLogin:');
-
-	for (d in data){
-		console.log(d + ':' + data[d]);
-
-	}
+	
 	var success = false;
 	var found = false;
+	var alreadyLoggedIn = false;
+	var user = userByUsername(data.username);
+
+	if (user){
+		if (user.isLoggedIn){
+		} else {
+			if (user.username == data.username and user.password == data.password) {
+				success = true;
+			}
+		}
+	} else{
+		puertorico.accounts.push( {username: data.username, password: data.password, isLoggedIn: true});
+		success = true;
+		player.name = data.username;
+	}
+
+
+
 	var player = playerById(this.id);
 	var i;
 	// need to handle multiple logins with same creds
 	// if a cred is logged in, then you should not be able to log 
 	// in again with that cred until the first one is disconnected
 	if (player && ! player.isLoggedIn){
-		for (i=0; i<puertorico.players.length; i++){
-			// check to see if this username is already 
-			// logged in
-			// what should we do. log the other player out or deny this player
-			// we should probably log out the other player. 
-			// later in this code, we will want to find any games that this 
-			// username may have been in
-			
-			if (puertorico.players[i].name == data.username){
-				console.log("This username is already logged in.  (" + data.username + ")");
-			}
-
-		}
 		for (i=0; i<puertorico.accounts.length; i++){
 			if (puertorico.accounts[i].username == data.username){
 				found = true;
 				if (puertorico.accounts[i].password == data.password){
-					success = true;
-					player.name = data.username;
+					for (i=0; i<puertorico.players.length; i++){
+						if (puertorico.players[i].name == data.username){
+							console.log("This username is already logged in.  (" + data.username + ")");
+							alreadyLoggedIn = true;
+						}
+					}
+					if (! alreadyLoggedIn){
+						success = true;
+						player.name = data.username;
+					}
 				}
 			}
 		}
@@ -610,11 +612,17 @@ function sendToGame(id, message, player_id){
 		}
 	}
 }
+function User(username, password){
+	this.username = username;
+	this.password = password;
+	this.socketid;
+	this.isLoggedIn = true;
 
-function Player(socket, name){
-	this.socket = socket;
-	this.name = name;
-	this.isLoggedIn = false;
+	this.games = [];
+}
+
+function Player(username){
+	this.username = username;
 }
 
 function Game(name, password){
@@ -636,34 +644,27 @@ function Game(name, password){
 	// then the player can only be in one game...
 	// prolly not good.
 
-	this.addPlayer = function (player){
-		if (player.inGame) {
-			return;
-		}
-
+	this.addPlayer = function (user){
 		if (this.num_players >= this.max_players) {
 			return;
 		} else
 		{
+			var player = new Player(user);
 			this.players.push(player);
 			this.num_players++;
-			player.inGame = true;
-			player.game = this.id; 
-			player.socket.leave("lobby");
-			player.socket.join("game" + this.id);
-			player.socket.broadcast.to("game" + this.id).emit('chat', {message: player.name + ' has joined the game.'});
-			player.socket.emit('chat', {message: 'You are now in the game: ' + this.name });
+			player.game = this; 
+			player.user.socket.leave("lobby");
+			player.user.socket.join("game" + this.id);
+			player.user.socket.broadcast.to("game" + this.id).emit('chat', {message: player.user.username + ' has joined the game.'});
+			player.user.socket.emit('chat', {message: 'You are now in the game: ' + this.name });
 		}
 		return;
 	};
 
-	this.addSpectator = function(player){
-		if (player.inGame) {
-			return;
-		}
-		this.spectators.push(player);
+	this.addSpectator = function(user){
+
+		this.spectators.push(user);
 		this.num_spectators++;
-		player.inGame = true;
 		player.game = this.id; 
 		player.socket.join("" + this.id);
 		player.socket.emit('chat', {message: 'You are a spectator in the game: ' + this.name });
