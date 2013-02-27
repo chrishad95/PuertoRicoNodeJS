@@ -621,8 +621,8 @@ function User(username, password){
 	this.games = [];
 }
 
-function Player(username){
-	this.username = username;
+function Player(user){
+	this.user = user;
 }
 
 function Game(name, password){
