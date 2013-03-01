@@ -65,7 +65,6 @@ function onSocketConnection(client) {
 
 	client.join('lobby');
 	client.on('chat', onChat);
-	client.on('set nickname', onSetNickname);
 
 
 	client.broadcast.to('lobby').emit('chat', {message: p.name + ' has entered the lobby.'});
