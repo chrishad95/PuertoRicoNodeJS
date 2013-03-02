@@ -57,31 +57,45 @@ var setEventHandlers = function() {
 function onSocketConnection(client) {
 	console.log("Client connected: " + client.id);
 
-	var p = new Player(client);
-	p.inGame = false;
+	var c = new Client(client);
 
-	p.name = "Guest" + puertorico.guests++;
-	puertorico.players.push(p);
-
-	client.join('lobby');
-	client.on('chat', onChat);
+	puertorico.clients.push(c);
 
 
-	client.broadcast.to('lobby').emit('chat', {message: p.name + ' has entered the lobby.'});
-	client.emit('chat', {message: 'Welcome to the lobby, you are now known as ' + p.name});
+	//client.broadcast.to('lobby').emit('chat', {message: p.name + ' has entered the lobby.'});
+	client.emit('chat', {message: 'You must login.  /login username password'});
 
 	client.on('list players', onListPlayers);
 
 	client.on('new game', onNewGame);
 	client.on('login', onLogin);
 	client.on('disconnect', onClientDisconnect );
+	client.on('chat', onChat);
+
 };
 
 function playerById(id){
 	var i;
 	for (i=0; i<puertorico.players.length; i++){
-		if (puertorico.players[i].socket.id == id){
+		if (puertorico.players[i].user.socket.id == id){
 			return puertorico.players[i];
+		}
+	}
+}
+function userById(id){
+	var i;
+	for (i=0; i<puertorico.accounts.length; i++){
+		if (puertorico.accounts[i].socket.id == id){
+			return puertorico.accounts[i];
+		}
+	}
+}
+
+function userByUsername(u){
+	var i;
+	for (i=0; i<puertorico.accounts.length; i++){
+		if (puertorico.accounts[i].username == u){
+			return puertorico.accounts[i];
 		}
 	}
 }
@@ -95,8 +109,9 @@ function onLogin(data) {
 
 	if (user){
 		if (user.isLoggedIn){
+			//  what goes in here?
 		} else {
-			if (user.username == data.username and user.password == data.password) {
+			if (user.username == data.username && user.password == data.password) {
 				success = true;
 			}
 		}
@@ -106,43 +121,11 @@ function onLogin(data) {
 		player.name = data.username;
 	}
 
-
-
-	var player = playerById(this.id);
-	var i;
-	// need to handle multiple logins with same creds
-	// if a cred is logged in, then you should not be able to log 
-	// in again with that cred until the first one is disconnected
-	if (player && ! player.isLoggedIn){
-		for (i=0; i<puertorico.accounts.length; i++){
-			if (puertorico.accounts[i].username == data.username){
-				found = true;
-				if (puertorico.accounts[i].password == data.password){
-					for (i=0; i<puertorico.players.length; i++){
-						if (puertorico.players[i].name == data.username){
-							console.log("This username is already logged in.  (" + data.username + ")");
-							alreadyLoggedIn = true;
-						}
-					}
-					if (! alreadyLoggedIn){
-						success = true;
-						player.name = data.username;
-					}
-				}
-			}
-		}
-		if (! found){
-			// username was not found, add username to the 'table'
-			puertorico.accounts.push( {username: data.username, password: data.password});
-			success = true;
-			player.name = data.username;
-		}
-	
-		player.isLoggedIn = success;
+	if (success){
+		client.join('lobby');
 		// so now what should we do if this player is logged in.
 		// we should probably check to see if he was in a game and got disconnected
 		// and if so reconnect him.
-
 	}
 }
 
@@ -611,13 +594,17 @@ function sendToGame(id, message, player_id){
 		}
 	}
 }
-function User(username, password){
+function User(username, password,client){
 	this.username = username;
 	this.password = password;
-	this.socketid;
+	this.client = client;
 	this.isLoggedIn = true;
 
 	this.games = [];
+}
+
+function Client(socket){
+	this.socket = socket;
 }
 
 function Player(user){
@@ -676,19 +663,16 @@ function Game(name, password){
 function onChat(data){
 
 	console.log("clientid:" + this.id);
+	var room;
 	for (r in io.sockets.manager.roomClients[this.id]) {
+		room = io.sockets.manager.roomClients[this.id][r];
 		console.log("Room:" + r + ":" + this.id + ": " + io.sockets.manager.roomClients[this.id][r]);
 	}
 	// if player is in a game then only people in the game can see his message.
-	var playerChat = playerById(this.id);
-	if (playerChat) {
-		console.log(playerChat.name + ': ' + data.message);
-		if (playerChat.inGame){
-			console.log(this.id + " is in a game: " + playerChat.game);
-			this.broadcast.to("game" + playerChat.game).emit('chat', {message: playerChat.name + ": " + data.message});
-		} else {
-			this.broadcast.to("lobby").emit('chat', {message: playerChat.name + ": " + data.message});
-		}
+	var user = userById(this.id);
+	if (user) {
+		console.log(user.username + ': ' + data.message);
+		this.broadcast.to(room.substr(1)).emit('chat', {message: user.username + ": " + data.message});
 	}
 }
 
