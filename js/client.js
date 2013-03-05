@@ -93,10 +93,14 @@ $(function () {
 				socket.emit('game', t.substr(6));
 			} else if (pieces[0] == '/new') {
 				socket.emit('new game', {name: pieces[1], password: pieces[2]});
+			} else if (pieces[0] == '/join') {
+				socket.emit('join game', {name: pieces[1], password: pieces[2]});
 			} else if (pieces[0] == '/leave') {
 				socket.emit('leave', {});
 			} else if (pieces[0] == '/login') {
 				socket.emit('login', {username: pieces[1], password: pieces[2]});
+			} else if (pieces[0] == '/whoami') {
+				socket.emit('whoami', {});
 			} else if (pieces[0] == '/msg') {
 				socket.emit('private message', t.substr(5) );
 			} else if (t.substr(0,5) == '/list') {

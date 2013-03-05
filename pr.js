@@ -18,14 +18,11 @@ app.get('/js/client.js', function (req, res) {
 });
 
 function init() {
-	puertorico.players = [];
 	puertorico.games = [];
-	puertorico.player_names = [];
 	puertorico.games_counter = 0;
 	puertorico.guests = 0;
 	puertorico.accounts = [];
-
-	puertorico.names = [];
+	puertorico.clients = [];
 
 	puertorico.plantation_types = [];
 	puertorico.plantation_types.coffee = 8;
@@ -62,13 +59,14 @@ function onSocketConnection(client) {
 	puertorico.clients.push(c);
 
 
-	//client.broadcast.to('lobby').emit('chat', {message: p.name + ' has entered the lobby.'});
 	client.emit('chat', {message: 'You must login.  /login username password'});
 
 	client.on('list players', onListPlayers);
 
 	client.on('new game', onNewGame);
+	client.on('join game', onJoinGame);
 	client.on('login', onLogin);
+	client.on('whoami', onWhoami);
 	client.on('disconnect', onClientDisconnect );
 	client.on('chat', onChat);
 
@@ -82,10 +80,19 @@ function playerById(id){
 		}
 	}
 }
+function gameByName(name){
+	var i;
+	for (i=0; i<puertorico.games.length; i++){
+		if (puertorico.games[i].name == name){
+			return puertorico.games[i];
+		}
+	}
+}
+
 function userById(id){
 	var i;
 	for (i=0; i<puertorico.accounts.length; i++){
-		if (puertorico.accounts[i].socket.id == id){
+		if (puertorico.accounts[i].isLoggedIn && puertorico.accounts[i].client.id == id){
 			return puertorico.accounts[i];
 		}
 	}
@@ -101,7 +108,7 @@ function userByUsername(u){
 }
 
 function onLogin(data) {
-	
+	console.log(data.username + ' is trying to login.');	
 	var success = false;
 	var found = false;
 	var alreadyLoggedIn = false;
@@ -116,32 +123,43 @@ function onLogin(data) {
 			}
 		}
 	} else{
-		puertorico.accounts.push( {username: data.username, password: data.password, isLoggedIn: true});
+		user = new User(data.username, data.password, this);
+
+		puertorico.accounts.push( user);
 		success = true;
-		player.name = data.username;
+		console.log('New account created for ' + data.username );	
 	}
 
 	if (success){
-		client.join('lobby');
+		console.log('Login was successful for ' + data.username );	
+		user.isLoggedIn = true;
+		user.client = this;
+		this.join('lobby');
+		user.room = 'lobby';
+		this.broadcast.to(user.room).emit('chat', {message: user.username + ' has entered the lobby.'});
+		this.emit('chat', {message: "Login was successful. You are in the lobby."});
 		// so now what should we do if this player is logged in.
 		// we should probably check to see if he was in a game and got disconnected
 		// and if so reconnect him.
+	} else {
+		this.emit('chat', {message: "Login was not successful."});
 	}
 }
 
 function onClientDisconnect() {
 
-	var removePlayer = playerById(this.id);
-	console.log(removePlayer.name + " has disconnected.");
+	// when a client disconnects
+	// need to modify the user account
+	// and perhaps notify any games that he was in
 
-	if (!removePlayer){
+	var user = userById(this.id);
+
+	if (!user){
 		return;
 	}
-	puertorico.players.splice(puertorico.players.indexOf(removePlayer), 1);
-	this.broadcast.emit("remove player", {id: this.id});
-
-	//	leaveGame(id);
-	//	delete puertorico.players[id];
+	console.log(user.username + " has disconnected.");
+	user.isLoggedIn = false;
+	user.client = null;
 }
 
 function leaveGame(id){
@@ -576,13 +594,32 @@ function setupGame(id){
 	}
 }
 
+function onJoinGame(data){
+	var user = userById(this.id);
+	if (user && user.isLoggedIn){
+		console.log("joining game: " + data.name + ", " + data.password);
+		var joinGame = gameByName(data.name);
+		if (joinGame){
+			// let addPlayer validate
+			joinGame.addPlayer(user);
+		}
+	}
+}
+
 function onNewGame(data){
 	
-	var player = playerById(this.id);
-	if (player && player.isLoggedIn){
+	var user = userById(this.id);
+	if (user && user.isLoggedIn){
 		console.log("creating new game: " + data.name + ", " + data.password);
-		var newGame = new Game(data.name, data.password);
-		newGame.addPlayer(player);
+		var g = gameByName(data.name);
+		if (g){
+			// game name already exists.
+			console.log("Game " + data.name + " already exists.");
+			return;
+		} else {
+			var newGame = new Game(data.name, data.password);
+			newGame.addPlayer(user);
+		}
 	}
 }
 
@@ -624,25 +661,45 @@ function Game(name, password){
 	this.gameStarted = false;
 	this.status = 'Waiting for players';
 
+	this.playerByUsername = function (username) {
+		var i;
+		for (i=0; i<this.players.length; i++){
+			if (this.players[i].user.username == username){
+				return this.players[i];
+			}
+		}
+
+	};
 
 	// need to store game data for this player 
 	// if i store game data in the parent player object
 	// then the player can only be in one game...
 	// prolly not good.
-
+	
 	this.addPlayer = function (user){
+
 		if (this.num_players >= this.max_players) {
 			return;
 		} else
 		{
-			var player = new Player(user);
-			this.players.push(player);
-			this.num_players++;
-			player.game = this; 
-			player.user.socket.leave("lobby");
-			player.user.socket.join("game" + this.id);
-			player.user.socket.broadcast.to("game" + this.id).emit('chat', {message: player.user.username + ' has joined the game.'});
-			player.user.socket.emit('chat', {message: 'You are now in the game: ' + this.name });
+			var p = this.playerByUsername(user.username);
+			if (p){
+				console.log(user.username + " is already in game, " + this.name);
+				// this user is already in this game.
+				user.client.emit('chat', {message: 'You are already in the game: ' + this.name });
+				return;
+			} else {
+				var player = new Player(user);
+				this.players.push(player);
+				this.num_players++;
+				player.user.client.leave("lobby");
+				player.user.client.join("game" + this.id);
+				player.user.room = "game" + this.id;
+				player.user.games.push(this);
+
+				player.user.client.broadcast.to(user.rooom).emit('chat', {message: player.user.username + ' has joined the game.'});
+				player.user.client.emit('chat', {message: 'You are now in the game: ' + this.name });
+			}
 		}
 		return;
 	};
@@ -660,13 +717,35 @@ function Game(name, password){
 	puertorico.games.push(this);
 }
 
+function onWhoami(){
+	var user = userById(this.id);
+	this.emit('chat', {message: 'ClientId:' + this.id});
+	if (user){
+		this.emit('chat', {message: 'Logged In?:' + user.isLoggedIn});
+		if (user.isLoggedIn){
+			this.emit('chat', {message: 'Username:' + user.username});
+			if (user.games.length > 0)
+			{
+				var games = [];
+				var i;
+				for (i=0; i< user.games.length; i++){
+					games.push(user.games[i].name);
+				}
+					
+				this.emit('chat', {message: 'Games: ' + games.join()});
+			}
+		}
+	}
+
+
+}
 function onChat(data){
 
 	console.log("clientid:" + this.id);
 	var room;
 	for (r in io.sockets.manager.roomClients[this.id]) {
-		room = io.sockets.manager.roomClients[this.id][r];
-		console.log("Room:" + r + ":" + this.id + ": " + io.sockets.manager.roomClients[this.id][r]);
+		//room = io.sockets.manager.roomClients[this.id][r];
+		room = r;
 	}
 	// if player is in a game then only people in the game can see his message.
 	var user = userById(this.id);
@@ -674,30 +753,6 @@ function onChat(data){
 		console.log(user.username + ': ' + data.message);
 		this.broadcast.to(room.substr(1)).emit('chat', {message: user.username + ": " + data.message});
 	}
-}
-
-function onSetNickname(data){
-	var player = playerById(this.id);
-	if (player) {
-		// look to see if this name has already been used once,
-		// i know that sucks, but i don't want to spend a lot of time
-		// on this when it should really just be a login anyway
-		var i;
-		for (i=0; i<puertorico.names.length; i++){
-			if (puertorico.names[i] == data.name){
-				return;
-			}
-		}
-		var oldname = "" + player.name;
-		player.name = data.name;
-		if (player.inGame){
-			socket.broadcast.to(player.game).emit('chat', {message: oldname + ' is now known as ' + player.name});
-		} else {
-			socket.broadcast.to("lobby").emit('chat', {message: oldname + ' is now known as ' + player.name});
-		}
-		socket.emit('chat', {message: 'You are now known as ' + player.name});
-	}
-	
 }
 
 function onListPlayers() {
