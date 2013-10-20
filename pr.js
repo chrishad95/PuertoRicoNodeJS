@@ -70,6 +70,10 @@ function onSocketConnection(client) {
 	client.on('disconnect', onClientDisconnect );
 	client.on('chat', onChat);
 
+	// game specific functions/events
+	client.on('populate', onPopulate); // during mayor stage, players can populate plantations, factories etc
+
+
 };
 
 function playerById(id){
